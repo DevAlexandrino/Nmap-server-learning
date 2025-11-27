@@ -28,26 +28,24 @@ def criaAlvo(tuplaIP: tuple):
     return ipRede
 
 # Essa função cria pacotes ARP, manda e espera resposta deles.
-# Também guarda os endereços de resposta numa array.
-def arp(ip_alvo: str, listaIPs):
+def arp(ip_alvo: str):
     pacote = scapy.Ether(dst="ff:ff:ff:ff:ff:ff")/scapy.ARP(pdst=ip_alvo)# Monto o pacote ARP
     resposta = scapy.srp(pacote, timeout=2.5, verbose=0)# Envia o pacote e espera a resposta na camada 2(Enlace de dados)
     if len(resposta[0]) > 0: # Testa se houve resposta ou não.
         ipResposta = resposta[0][0][1].psrc
         macResposta = resposta[0][0][1].hwsrc
-        listaIPs.append((ipResposta, macResposta))
         return f"host ativo: {ipResposta}\nEndereço MAC: {macResposta}\n"
     return ""
 
 
 # Função recursiva que faz todas as combinações possíveis de IPs, seguindo a máscara de rede.
 # Ela pula de octeto em octeto combinando eles para formar um IP alvo.
-def combinacaoIP(tuplaIP: tuple, ipRede: str, octetoAtual: int, listaIPs, inicio=0, fim=255):
+def combinacaoIP(tuplaIP: tuple, ipRede: str, octetoAtual: int, inicio=0, fim=255):
     output = io.StringIO()
     resultados = []
 
     def arp_thread(alvo: str):
-        res = arp(alvo, listaIPs)
+        res = arp(alvo)
         if res:
             resultados.append(res)
 
@@ -59,17 +57,15 @@ def combinacaoIP(tuplaIP: tuple, ipRede: str, octetoAtual: int, listaIPs, inicio
         thread = threading.Thread(target=arp_thread, args=(alvo,), kwargs={}, daemon=True)
         thread.start()
 
-    
-    resultados.sort()
     for resultado in resultados:
         output.write(resultado)
+        
     return output.getvalue()
 
 # Função principal que 
 def hostDiscovery(ip: str):
-    listaIPs = []
-    output = io.StringIO()
     inicio = time.time()
+    output = io.StringIO()
     if '/' in ip:
         tuplaIP = criaTuplaIP(ip)
         mascara = tuplaIP[4]
@@ -82,7 +78,7 @@ def hostDiscovery(ip: str):
         ipRede = criaAlvo(tuplaIP)
         octeto = int(mascara / 8)#indíce da tupla que acaba o IP da rede
         if resto == 0: # Não há bits de rede e hosts num mesmo octeto.
-            respostas = combinacaoIP(tuplaIP, ipRede, octeto, listaIPs)
+            respostas = combinacaoIP(tuplaIP, ipRede, octeto)
             output.write(respostas)
         else:
             # Dividindo os números de bits de rede por 8, eu separo quantos octetos (8 bits) há de redes.                   rede host
@@ -97,15 +93,13 @@ def hostDiscovery(ip: str):
                 inicio = 0
             else:
                 inicio = delimitador - quantidadeHosts
-            respostas = combinacaoIP(tuplaIP, ipRede, octeto, listaIPs, inicio, delimitador)
-    else:
-        arp(ip, listaIPs)
+            respostas = combinacaoIP(tuplaIP, ipRede, octeto, inicio, delimitador)
+    else: # Se for só um IP, então um arp é enviado, apenas.
+        resposta = arp(ip)
+        output.write(resposta)
+
     fim = time.time()
-    print(f"Varredura feita em: {fim - inicio:.3f} segundos")
-    # Iteração somente para debugar, não ficará na versão final
-    listaIPs.sort()
-    for tupla in listaIPs:
-        print(tupla)
+    output.write(f"Varredura feita em: {fim - inicio:.3f} segundos\n")
     return output.getvalue()
 
 # ------ PROGRAMA PRINCIPAL ------
@@ -116,3 +110,5 @@ if __name__ == "__main__":
         print(hostDiscovery(ip))
     else:
         print(hostDiscovery(input("IP ou rede: ")))
+        
+        
