@@ -69,7 +69,7 @@ def varrer_porta(ip_alvo, porta):
             except Exception:
                 # Outros erros (ex: "Connection reset by peer")
                 pass
-            print(f" Porta {porta} está ABERTA ({servico_identificado})")
+            print(f"Porta {porta} está ABERTA ({servico_identificado})")
         
         # Fecha o socket
         s.close()
@@ -87,15 +87,22 @@ def worker():  # função na qual cada thread vai usar para executar
         varrer_porta(ip_alvo_global, porta)
         fila_portas.task_done()
 
-def main_scanner(ip_alvo, portas_inicio, portas_fim):
+def main_scanner(ip_alvo, portas_inicio=None, portas_fim=None, port_list=None):
     """
     Função principal para configurar e iniciar a varredura.
+    Pode receber um intervalo (portas_inicio, portas_fim) ou uma lista (port_list).
     """
     global ip_alvo_global
     ip_alvo_global = ip_alvo
     
     print(f"Iniciando varredura de portas no alvo: **{ip_alvo}**")
-    print(f"Portas a serem varridas: {portas_inicio} a {portas_fim}")
+    if port_list:
+        print(f"Portas a serem varridas: {port_list}")
+    elif portas_inicio is not None and portas_fim is not None:
+        print(f"Portas a serem varridas: {portas_inicio} a {portas_fim}")
+    else:
+        print("Nenhuma porta especificada para varredura.")
+        return
     print("-" * 50)
     
     # 1. Cria as Threads
@@ -106,8 +113,12 @@ def main_scanner(ip_alvo, portas_inicio, portas_fim):
         t.start()
         
     # 2. Preenche a Fila com as Portas
-    for porta in range(portas_inicio, portas_fim + 1):
-        fila_portas.put(porta)
+    if port_list:
+        for porta in port_list:
+            fila_portas.put(porta)
+    else:
+        for porta in range(portas_inicio, portas_fim + 1):
+            fila_portas.put(porta)
         
     # 3. Espera o Fim da Varredura
     fila_portas.join()

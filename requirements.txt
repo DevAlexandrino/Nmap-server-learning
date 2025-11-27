@@ -1,1 +1,2 @@
-# No external requirements; uses standard library (tkinter)
+scapy
+tk
