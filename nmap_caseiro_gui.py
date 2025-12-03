@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# coding: utf-8
 """
 Interface gráfica para o "nmap caseiro".
 
@@ -12,7 +13,8 @@ Funcionalidades:
 Empacotamento: usar `pyinstaller --onefile nmap_caseiro_gui.py`
 """
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
+from tkinter import filedialog, messagebox
+import customtkinter as ctk
 import threading
 import sys
 import importlib
@@ -36,82 +38,162 @@ try:
 except Exception:
     varredura_portas = None
 
-# Classe para redirecionar a saída (stdout) para o widget de texto da GUI
+ctk.set_appearance_mode("Dark")
+ctk.set_default_color_theme("blue")
+
 class TextRedirector:
     def __init__(self, widget):
         self.widget = widget
 
     def write(self, text):
-        self.widget.insert(tk.END, text)
-        self.widget.see(tk.END)
+        self.widget.insert(ctk.END, text)
+        self.widget.see(ctk.END)
 
     def flush(self):
         pass
 
-class NmapGUI(tk.Tk):
+class NmapGUI(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title('Nmap Caseiro - Interface')
         self.discovered_hosts = []
-        self.geometry('800x600')
+
+        self.geometry('1100x720')
+        self.minsize(900, 620)
+
+        self.default_font = ("Helvetica", 14)
+        self.header_font = ("Helvetica", 18, "bold")
+
         self._build()
 
     def _build(self):
-        frm = ttk.Frame(self, padding=10)
-        frm.pack(fill='x')
+        container = ctk.CTkFrame(self, corner_radius=0)
+        container.pack(fill='both', expand=True)
 
-        # Escolha do modo
-        ttk.Label(frm, text='Modo:').grid(row=0, column=0, sticky='w')
+        top_frame = ctk.CTkFrame(container, fg_color=("gray17", "#071428"), corner_radius=12)
+        top_frame.pack(fill='x', padx=14, pady=(14, 6), ipady=9)
+
+        # 4 colunas na mesma linha
+        top_frame.grid_columnconfigure((0,1,2,3,4,5,6,7), weight=1)
+
+        # ---------- MODO ----------
+        lbl_modo = ctk.CTkLabel(top_frame, text="Modo:", font=self.default_font)
+        lbl_modo.grid(row=0, column=0, sticky="w", padx=(18, 6), pady=8)
+
         self.mode_var = tk.StringVar(value='scan')
-        self.mode_combo = ttk.Combobox(frm, textvariable=self.mode_var, values=['scan','host-discovery'], width=27, state='readonly')
-        self.mode_combo.grid(row=0, column=1, sticky='w')
-        self.mode_combo.bind('<<ComboboxSelected>>', self.on_mode_change)
+        self.mode_menu = ctk.CTkOptionMenu(
+            top_frame, values=['scan', 'host-discovery'], variable=self.mode_var,
+            width=160, corner_radius=12
+        )
+        self.mode_menu.grid(row=0, column=1, sticky="ew", padx=6, pady=8)
 
-        ttk.Label(frm, text='Alvo:').grid(row=1, column=0, sticky='w')
+        # ---------- ALVO ----------
+        lbl_alvo = ctk.CTkLabel(top_frame, text="Alvo:", font=self.default_font)
+        lbl_alvo.grid(row=0, column=2, sticky="w", padx=(18, 6), pady=8)
+
         self.target_var = tk.StringVar(value='127.0.0.1')
-        self.target_entry = ttk.Entry(frm, textvariable=self.target_var, width=30)
-        self.target_entry.grid(row=1, column=1, sticky='w')
-        ttk.Button(frm, text='Descobrir IP da rede', command=self.show_local_ip).grid(row=1, column=2, sticky='w', padx=4)
+        self.target_entry = ctk.CTkEntry(
+            top_frame, textvariable=self.target_var, height=38, corner_radius=10
+        )
+        self.target_entry.grid(row=0, column=3, sticky="ew", padx=6, pady=8)
 
-        # Campos para intervalo de portas
-        ttk.Label(frm, text='Porta Inicial:').grid(row=2, column=0, sticky='w')
+        # ---------- PORTA INICIAL ----------
+        lbl_p_ini = ctk.CTkLabel(top_frame, text="Porta inicial:", font=self.default_font)
+        lbl_p_ini.grid(row=0, column=4, sticky="w", padx=(18, 6), pady=8)
+
         self.start_port_var = tk.StringVar(value='1')
-        self.start_port_entry = ttk.Entry(frm, textvariable=self.start_port_var, width=10)
-        self.start_port_entry.grid(row=2, column=1, sticky='w')
-        ttk.Label(frm, text='Porta Final:').grid(row=3, column=0, sticky='w')
+        self.start_port_entry = ctk.CTkEntry(
+            top_frame, textvariable=self.start_port_var, width=100,
+            height=36, corner_radius=10
+        )
+        self.start_port_entry.grid(row=0, column=5, sticky="ew", padx=6, pady=8)
+
+        # ---------- PORTA FINAL ----------
+        lbl_p_fim = ctk.CTkLabel(top_frame, text="Porta final:", font=self.default_font)
+        lbl_p_fim.grid(row=0, column=6, sticky="w", padx=(18, 6), pady=8)
+
         self.end_port_var = tk.StringVar(value='1024')
-        self.end_port_entry = ttk.Entry(frm, textvariable=self.end_port_var, width=10)
-        self.end_port_entry.grid(row=3, column=1, sticky='w')
+        self.end_port_entry = ctk.CTkEntry(
+            top_frame, textvariable=self.end_port_var, width=100,
+            height=36, corner_radius=10
+        )
+        self.end_port_entry.grid(row=0, column=7, sticky="ew", padx=6, pady=8)
 
-        btn_frame = ttk.Frame(frm)
-        btn_frame.grid(row=4, column=0, columnspan=4, pady=8)
-        self.run_btn = ttk.Button(btn_frame, text='Run Scan', command=self.run_operation, width=15)
-        self.run_btn.pack(side='left', padx=4)
-        self.scan_all_btn = ttk.Button(btn_frame, text='Scan All Found', command=self.scan_all_discovered_hosts, width=15, state='disabled')
-        self.scan_all_btn.pack(side='left', padx=4)
-        ttk.Button(btn_frame, text='Analisar Servidor de Teste', command=self.analyze_test_server, width=25).pack(side='left', padx=4)
-        ttk.Button(btn_frame, text='Abrir servidor de teste', command=self.start_test_server).pack(side='left', padx=6)
-        ttk.Button(btn_frame, text='Abrir Página Web de Teste', command=self.open_test_webpage).pack(side='left', padx=4)
+        # botões principais
+        btn_frame = ctk.CTkFrame(top_frame, fg_color="transparent")
+        btn_frame.grid(row=2, column=0, columnspan=8, pady=(18,6), padx=12, sticky="ew")
+        btn_frame.grid_columnconfigure((0,1,2), weight=1)
 
-        ttk.Button(btn_frame, text='Explain', command=self.show_explain).pack(side='left', padx=6)
-        ttk.Button(btn_frame, text='Save Report', command=self.save_report).pack(side='left', padx=6)
+        self.discover_btn = ctk.CTkButton(btn_frame, text="Descobrir IP", height=36, corner_radius=14, command=self.show_local_ip)
+        self.discover_btn.grid(row=0, column=0, padx=12, pady=6, sticky="ew")
 
-        # Output
-        self.output = tk.Text(self, wrap='none')
-        self.output.pack(fill='both', expand=True, padx=10, pady=6)
+        self.run_btn = ctk.CTkButton(btn_frame, text="Run Scan", height=36, corner_radius=14, command=self.run_operation)
+        self.run_btn.grid(row=0, column=1, padx=12, pady=6, sticky="ew")
+
+        self.scan_all_btn = ctk.CTkButton(btn_frame, text="Scan All Found", height=36, corner_radius=14, command=self.scan_all_discovered_hosts)
+        self.scan_all_btn.grid(row=0, column=2, padx=12, pady=6, sticky="ew")
+
+        # ações rápidas
+        quick_frame = ctk.CTkFrame(container, fg_color=("gray16","#061523"), corner_radius=12)
+        quick_frame.pack(fill='x', padx=14, pady=(14, 6), ipady=9)
+        quick_frame.grid_columnconfigure((0,1), weight=1)
+
+        lbl_quick = ctk.CTkLabel(quick_frame, text="Ações Rápidas", font=self.header_font)
+        lbl_quick.grid(row=0, column=0, columnspan=2, sticky="w", padx=18, pady=(12,6))
+
+        # Linha de botões 1
+        btn_q1 = ctk.CTkButton(quick_frame, text="Analisar Servidor", height=36, corner_radius=14, command=self.analyze_test_server)
+        btn_q1.grid(row=1, column=0, padx=18, pady=(6,10), sticky="ew")
+        btn_q2 = ctk.CTkButton(quick_frame, text="Abrir Servidor", height=36, corner_radius=14, command=self.start_test_server)
+        btn_q2.grid(row=1, column=1, padx=18, pady=(6,10), sticky="ew")
+
+        # Linha de botões 2
+        btn_q3 = ctk.CTkButton(quick_frame, text="Abrir Web", height=36, corner_radius=14, command=self.open_test_webpage)
+        btn_q3.grid(row=2, column=0, padx=18, pady=(6,18), sticky="ew")
+        btn_q4 = ctk.CTkButton(quick_frame, text="Save Report", height=36, corner_radius=14, command=self.save_report)
+        btn_q4.grid(row=2, column=1, padx=18, pady=(6,18), sticky="ew")
+        # Botão Explain
+        btn_explain = ctk.CTkButton(quick_frame, text="Explain", height=36, corner_radius=14, command=self.show_explain)
+        btn_explain.grid(row=3, column=0, columnspan=2, padx=18, pady=(6, 18), sticky="ew")
+
+
+        # Área de resultados (Label + box)
+        result_frame = ctk.CTkFrame(container, fg_color=("gray15","#04121a"), corner_radius=12)
+        result_frame.pack(fill='both', expand=True, padx=14, pady=(14, 6), ipady=9)
+
+        lbl_result = ctk.CTkLabel(result_frame, text="Resultados do scan", font=self.header_font)
+        lbl_result.pack(anchor="nw", padx=18, pady=(18,6))
+
+        text_outer = ctk.CTkFrame(result_frame, fg_color=("gray11","#02121a"), corner_radius=12)
+        text_outer.pack(fill='both', expand=True, padx=18, pady=(6,18))
+
+        # Barra de rolagem do lado direito (tk.Scrollbar pode ser usado)
+        text_scroll_y = tk.Scrollbar(text_outer, orient='vertical')
+        text_scroll_x = tk.Scrollbar(text_outer, orient='horizontal')
+
+        self.output = tk.Text(text_outer, wrap='none', yscrollcommand=text_scroll_y.set, xscrollcommand=text_scroll_x.set, bg='#0b1b26', fg='#e6f1f8', insertbackground='white', relief='flat', padx=12, pady=12, font=("Helvetica", 16))
+        self.output.pack(fill='both', expand=True, side='left')
+
+        # configura scrollbars
+        text_scroll_y.config(command=self.output.yview)
+        text_scroll_y.pack(side='right', fill='y')
+        text_scroll_x.config(command=self.output.xview)
+        text_scroll_x.pack(side='bottom', fill='x')
 
         # Configuração de tags para texto clicável
-        self.output.tag_configure("clickable_ip", foreground="blue", underline=True)
+        self.output.tag_configure("clickable_ip", foreground="#63b3ff", underline=True)
         self.output.tag_bind("clickable_ip", "<Enter>", self._on_enter_ip)
         self.output.tag_bind("clickable_ip", "<Leave>", self._on_leave_ip)
         self.output.tag_bind("clickable_ip", "<Button-1>", self._on_ip_click)
 
+        self.on_mode_change()
+
     def on_mode_change(self, event=None):
         mode = self.mode_var.get()
         if mode == 'scan':
-            self.run_btn.config(text='Run Scan')
+            self.run_btn.configure(text='Run Scan')
         elif mode == 'host-discovery':
-            self.run_btn.config(text='Run Discovery')
+            self.run_btn.configure(text='Run Discovery')
 
     def _on_enter_ip(self, event):
         self.output.config(cursor="hand2")
@@ -169,7 +251,7 @@ class NmapGUI(tk.Tk):
         
         # Limpa a lista de hosts e desabilita o botão de scan em massa
         self.discovered_hosts.clear()
-        self.scan_all_btn.config(state='disabled')
+        self.scan_all_btn.configure(state='disabled')
         self.output.delete('1.0', 'end')
         def worker():
             start_time = datetime.now(timezone.utc)
@@ -219,7 +301,7 @@ class NmapGUI(tk.Tk):
 
         # Habilita o botão se algum host foi encontrado
         if self.discovered_hosts:
-            self.scan_all_btn.config(state='normal')
+            self.scan_all_btn.configure(state='normal')
 
     def _run_port_scan(self, target, start_port=None, end_port=None, port_list=None):
         """Função auxiliar para executar o scanner de portas e redirecionar a saída."""
@@ -304,27 +386,22 @@ class NmapGUI(tk.Tk):
             webbrowser.open(url)
 
     def show_explain(self):
-        # Cria uma Toplevel window em vez de um simples messagebox
-        explain_window = tk.Toplevel(self)
+        explain_window = ctk.CTkToplevel(self)
         explain_window.title("Explicação Detalhada")
         explain_window.geometry("700x550")
 
-        # Torna a janela modal
         explain_window.transient(self)
         explain_window.grab_set()
 
-        # Cria um frame para o texto e scrollbar
-        text_frame = ttk.Frame(explain_window, padding=10)
-        text_frame.pack(fill='both', expand=True)
-
-        # Cria um Text widget e uma Scrollbar
-        scrollbar = ttk.Scrollbar(text_frame)
-        scrollbar.pack(side='right', fill='y')
-
-        text_widget = tk.Text(text_frame, wrap='word', yscrollcommand=scrollbar.set, padx=5, pady=5)
-        text_widget.pack(side='left', fill='both', expand=True)
-
-        scrollbar.config(command=text_widget.yview)
+        textbox = ctk.CTkTextbox(
+            explain_window,
+            width=650,
+            height=500,
+            corner_radius=12,
+            fg_color="#071927",
+            text_color="white"
+        )
+        textbox.pack(fill='both', expand=True, padx=10, pady=10)
 
         explain_text = (
             "--- Como Usar a Ferramenta ---\n\n"
@@ -351,13 +428,15 @@ class NmapGUI(tk.Tk):
             "• SSH (Secure Shell) e SMTP (Simple Mail Transfer Protocol) - (Simulados no servidor de teste)\n"
             "   Como funcionam: São protocolos de aplicação que rodam sobre TCP. O SSH (porta 2222 no teste) é para acesso remoto seguro, e o SMTP (porta 2525 no teste) é para envio de e-mails. O scanner tenta se conectar a essas portas e lê a mensagem de boas-vindas ('banner') para identificar o serviço."
         )
-        
-        text_widget.insert('1.0', explain_text)
-        text_widget.config(state='disabled') # Torna o texto somente leitura
 
-        # Botão para fechar a janela
-        close_button = ttk.Button(explain_window, text="Fechar", command=explain_window.destroy)
+        # insere o texto e deixa somente leitura
+        textbox.insert("1.0", explain_text)
+        textbox.configure(state="disabled")
+
+        close_button = ctk.CTkButton(explain_window, text="Fechar", command=explain_window.destroy)
         close_button.pack(pady=10)
+
+
 
     def save_report(self):
         content = self.output.get('1.0', 'end').strip()
