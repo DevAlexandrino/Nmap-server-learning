@@ -32,43 +32,42 @@ def varrer_porta(ip_alvo, porta):
             except OSError:
                 servico_identificado = "Desconhecido"
             
-            # --- 2. Análise de Banner (Avançada) ---
-            try:
-                # Define um timeout ainda mais curto para a leitura
-                s.settimeout(0.5) 
-                # Tenta ler os primeiros 1024 bytes (o banner)
-                banner = s.recv(1024)
-                
-                # Decodifica o banner (ignora erros de encoding)
-                banner_str = banner.decode(errors='ignore').strip()
-                print("Banner: " + banner_str)
-                
-                if banner_str:
+                # --- 2. Análise de Banner (Avançada) ---
+                try:
+                    # Define um timeout ainda mais curto para a leitura
+                    s.settimeout(0.5) 
+                    # Tenta ler os primeiros 1024 bytes (o banner)
+                    banner = s.recv(1024)
                     
-                    # Logica simples de identificação de serviço pelo conteúdo do banner:
-                    # Pega apenas a primeira linha do banner para manter a saída limpa
-                    primeira_linha = banner_str.splitlines()[0][:50]
+                    # Decodifica o banner (ignora erros de encoding)
+                    banner_str = banner.decode(errors='ignore').strip()
                     
-                    if primeira_linha.upper().startswith("SSH"):
-                        servico_identificado = f"SSH (Banner: {primeira_linha}...)"
-                    elif "HTTP" in primeira_linha.upper() or "APACHE" in primeira_linha.upper() or "NGINX" in primeira_linha.upper():
-                        servico_identificado = f"HTTP/Web (Banner: {primeira_linha}...)"
-                    elif "FTP" in primeira_linha.upper():
-                        servico_identificado = f"FTP (Banner: {primeira_linha}...)"
-                    elif "SMTP" in primeira_linha.upper() or "MAIL" in primeira_linha.upper():
-                        servico_identificado = f"SMTP/Mail (Banner: {primeira_linha}...)"
-                    elif "MYSQL" in primeira_linha.upper():
-                         servico_identificado = f"MySQL (Banner: {primeira_linha}...)"
-                    else:
-                         # Se o banner não corresponder a um padrão, usa o banner encontrado
-                         servico_identificado = f"Banner: {primeira_linha}..."
-                
-            except socket.timeout:
-                # O servidor não respondeu com um banner a tempo (não é um erro grave)
-                pass 
-            except Exception:
-                # Outros erros (ex: "Connection reset by peer")
-                pass
+                    if banner_str:
+                        
+                        # Logica simples de identificação de serviço pelo conteúdo do banner:
+                        # Pega apenas a primeira linha do banner para manter a saída limpa
+                        primeira_linha = banner_str.splitlines()[0][:50]
+                        
+                        if primeira_linha.upper().startswith("SSH"):
+                            servico_identificado = f"SSH (Banner: {primeira_linha}...)"
+                        elif "HTTP" in primeira_linha.upper() or "APACHE" in primeira_linha.upper() or "NGINX" in primeira_linha.upper():
+                            servico_identificado = f"HTTP/Web (Banner: {primeira_linha}...)"
+                        elif "FTP" in primeira_linha.upper():
+                            servico_identificado = f"FTP (Banner: {primeira_linha}...)"
+                        elif "SMTP" in primeira_linha.upper() or "MAIL" in primeira_linha.upper():
+                            servico_identificado = f"SMTP/Mail (Banner: {primeira_linha}...)"
+                        elif "MYSQL" in primeira_linha.upper():
+                            servico_identificado = f"MySQL (Banner: {primeira_linha}...)"
+                        else:
+                            # Se o banner não corresponder a um padrão, usa o banner encontrado
+                            servico_identificado = f"Banner: {primeira_linha}..."
+                    
+                except socket.timeout:
+                    # O servidor não respondeu com um banner a tempo (não é um erro grave)
+                    pass 
+                except Exception:
+                    # Outros erros (ex: "Connection reset by peer")
+                    pass
             print(f"Porta {porta} está ABERTA ({servico_identificado})")
         
         # Fecha o socket
